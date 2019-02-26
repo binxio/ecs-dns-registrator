@@ -13,9 +13,9 @@ aws cloudformation create-stack \
 
 aws cloudformation wait stack-create-complete  --stack-name ecs-dns-registrator
 ```
-This CloudFormation template will use our pre-packaged provider from `s3://binxio-public-${AWS_REGION}/lambdas/ecs-dns-registrator-0.1.0.zip`.
+This CloudFormation template will use our pre-packaged provider from `s3://binxio-public-${AWS_REGION}/lambdas/ecs-dns-registrator-0.1.1.zip`.
 
-or use [![](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=ecs-dns-registrator&templateURL=https://s3.amazonaws.com/binxio-public-eu-central-1/lambdas/ecs-dns-registrator-0.1.0.yaml)
+or use [![](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=ecs-dns-registrator&templateURL=https://s3.amazonaws.com/binxio-public-eu-central-1/lambdas/ecs-dns-registrator-0.1.1.yaml)
 
 ## Demo
 To install the simple sample, type:
