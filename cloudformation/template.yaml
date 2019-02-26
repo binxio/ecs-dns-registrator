@@ -1,0 +1,97 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECS task DNS registrator
+Parameters:
+  S3BucketPrefix:
+    Type: String
+    Default: 'binxio-public'
+  ZipFileName:
+    Type: String
+Conditions:
+  UseDefaultZip: !Equals
+    - !Ref ZipFileName
+    - ''
+      
+Resources:
+  Lambda:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - LambdaRole
+    Properties:
+      Description: ECS task DNS registrator
+      FunctionName: ecs-dns-registrator
+      Code:
+        S3Bucket: !Sub '${S3BucketPrefix}-${AWS::Region}'
+        S3Key: !If
+          - UseDefaultZip
+          - lambdas/fargate-dns-registrator-0.0.0.zip
+          - !Ref ZipFileName
+      Handler: task_event.handler
+      MemorySize: 128
+      Timeout: 600
+      Role: !GetAtt 'LambdaRole.Arn'
+      Runtime: python3.7
+
+  LambdaPolicy:
+    Type: AWS::IAM::Policy
+    DependsOn:
+      - LambdaRole
+    Properties:
+      PolicyName: FargetDNSRegistrator
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ec2:DescribeNetworkInterfaces
+              - ecs:DescribeTaskDefinition
+              - ecs:DescribeTasks
+              - route53:ListResourceRecordSets
+              - route53:ChangeResourceRecordSets
+              - route53:GetChange
+            Resource:
+              - '*'
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: 
+              - '*'
+      Roles:
+        - !Ref 'LambdaRole'
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+
+  EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: on every ECS task state change
+      EventPattern:
+        source:
+          - aws.ecs
+        detail-type:
+          - ECS Task State Change
+      State: ENABLED
+      Targets:
+        - Id: 1
+          Arn: !GetAtt Lambda.Arn
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Lambda
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventRule.Arn

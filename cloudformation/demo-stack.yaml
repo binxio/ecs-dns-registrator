@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Fargate DNS registrator demo
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: to create the VPC in
+  PublicSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: public subnet ids
+
+Resources:
+  Cluster:
+    Type: AWS::ECS::Cluster
+
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref Cluster
+      ServiceName: 'paas-monitor'
+      TaskDefinition: !Ref 'TaskDefinition'
+      DesiredCount: 1
+      LaunchType: 'FARGATE'
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets: !Ref 'PublicSubnets'
+          SecurityGroups:
+          - !Ref SecurityGroup
+          AssignPublicIp: 'ENABLED'
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: 'paas-monitor'
+      NetworkMode: 'awsvpc'
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: !Ref TaskRole
+      RequiresCompatibilities:
+        - FARGATE
+      ContainerDefinitions:
+       - Name: 'paas-monitor'
+         Image: 'mvanholsteijn/paas-monitor:latest'
+         PortMappings:
+           - ContainerPort: 1337
+         DockerLabels:
+           DNSName: paas-monitor.fargate.example
+           DNSHostedZoneId: !Ref HostedZone
+           DNSUsePublicIP: true
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns: 
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref 'VpcId'
+      GroupDescription: 'access to paas-monitor from the LB'
+      SecurityGroupIngress:
+        - Description: 'open to the load balancer'
+          FromPort: 1337
+          ToPort: 1337
+          IpProtocol: 'tcp'
+          CidrIp: 0.0.0.0/0
+
+  HostedZone:
+    Type: "AWS::Route53::HostedZone"
+    Properties:
+      Name: fargate.example
